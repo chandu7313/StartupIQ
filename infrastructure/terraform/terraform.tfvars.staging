@@ -1,0 +1,6 @@
+environment         = "staging"
+aws_region          = "ap-south-1"
+app_name            = "startupsaarthi"
+db_password         = "FETCH_FROM_AWS_SECRETS_MANAGER"  # Never commit real passwords
+acm_certificate_arn = "arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/CERT_ID"
+key_pair_name       = "startupsaarthi-keypair"
