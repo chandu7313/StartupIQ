@@ -10,12 +10,23 @@ import { ReportProducer } from './report.producer';
 import { IdeaDedupService } from './idea-dedup.service';
 import { AiModule } from '../ai/ai.module';
 
+const REPORT_QUEUE = 'report-generation';
+const DLQ_NAME = 'report-generation-dlq';
+
 @Module({
   imports: [
     AiModule,
-    BullModule.registerQueue({ name: 'report-generation' }),
+    // Main queue
+    BullModule.registerQueue({ name: REPORT_QUEUE }),
+    // Dead Letter Queue — failed jobs land here after all retries exhausted
+    BullModule.registerQueue({ name: DLQ_NAME }),
+    // Bull Board admin panel entries
     BullBoardModule.forFeature({
-      name: 'report-generation',
+      name: REPORT_QUEUE,
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: DLQ_NAME,
       adapter: BullMQAdapter,
     }),
   ],
@@ -27,6 +38,6 @@ import { AiModule } from '../ai/ai.module';
     IdeaDedupService,
   ],
   controllers: [ReportsController],
-  exports: [ReportProducer, IdeaDedupService],
+  exports: [ReportProducer, IdeaDedupService, ReportsService],
 })
 export class ReportsModule {}

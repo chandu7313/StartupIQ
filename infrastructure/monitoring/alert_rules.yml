@@ -1,0 +1,101 @@
+groups:
+  - name: api_alerts
+    interval: 30s
+    rules:
+      # ── Error rate > 5% ──────────────────────────────────
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate detected"
+          description: "API 5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      # ── Report failure rate > 10% ────────────────────────
+      - alert: HighReportFailureRate
+        expr: |
+          (
+            sum(rate(report_generation_total{status="failed"}[10m]))
+            /
+            sum(rate(report_generation_total[10m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High report generation failure rate"
+          description: "Report failure rate is {{ $value | humanizePercentage }}. Check AI agent connectivity."
+
+      # ── BullMQ queue depth > 100 ─────────────────────────
+      - alert: QueueDepthHigh
+        expr: active_report_jobs > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Report generation queue depth is high"
+          description: "Queue has {{ $value }} active/waiting jobs. Workers may be overloaded."
+
+      # ── API p95 latency > 5s ─────────────────────────────
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route)
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency detected"
+          description: "p95 latency is above 5s for route {{ $labels.route }}."
+
+      # ── AI generation > 120s ─────────────────────────────
+      - alert: SlowAIGeneration
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(report_generation_duration_seconds_bucket[30m])) by (le)
+          ) > 120
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI report generation is unusually slow"
+          description: "p95 generation time is {{ $value }}s. Check Claude API status."
+
+  - name: infrastructure_alerts
+    rules:
+      # ── DB connection pool exhausted ─────────────────────
+      - alert: PostgresConnectionPoolExhausted
+        expr: pg_stat_activity_count{state="active"} > 80
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL connection pool near exhaustion"
+          description: "{{ $value }} active connections. Max is typically 100."
+
+      # ── Redis memory > 80% ────────────────────────────────
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using {{ $value | humanizePercentage }} of allocated memory."
+
+      # ── Host disk > 85% ───────────────────────────────────
+      - alert: HighDiskUsage
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage above 85%"
+          description: "Filesystem {{ $labels.mountpoint }} has less than 15% free space."

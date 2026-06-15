@@ -1,0 +1,80 @@
+name: Release — Semantic Version + Changelog
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Release type
+        required: true
+        type: choice
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full history for changelog generation
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            # Bump version from package.json
+            CURRENT=$(node -p "require('./package.json').version")
+            NEW=$(npx semver $CURRENT -i ${{ github.event.inputs.release_type }})
+            echo "version=v$NEW" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate CHANGELOG
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.version.outputs.version }}
+          includeInvalidCommits: false
+          excludeTypes: "build,docs,style,other"
+
+      - name: Update CHANGELOG.md
+        run: |
+          echo "# CHANGELOG" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "${{ steps.changelog.outputs.changes }}" >> CHANGELOG.md
+          cat CHANGELOG.md
+
+      - name: Commit CHANGELOG
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update CHANGELOG for ${{ steps.version.outputs.version }}"
+          file_pattern: CHANGELOG.md
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.version.outputs.version }}
+          name: "StartupSaarthi AI ${{ steps.version.outputs.version }}"
+          body: ${{ steps.changelog.outputs.changes }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
+
+  deploy-production:
+    name: Deploy Release to Production
+    needs: release
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
+    with:
+      environment: production

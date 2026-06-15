@@ -1,0 +1,83 @@
+version: "3.9"
+
+# Production overrides — extends docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  api:
+    image: ${ECR_REGISTRY}/startupsaarthi-api:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    volumes: []   # No mounts in production — immutable containers
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      NODE_ENV: production
+
+  workers:
+    image: ${ECR_REGISTRY}/startupsaarthi-workers:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    volumes: []
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      NODE_ENV: production
+
+  web:
+    image: ${ECR_REGISTRY}/startupsaarthi-web:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    volumes: []
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      NODE_ENV: production
+
+  postgres:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

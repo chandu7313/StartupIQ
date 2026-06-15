@@ -1,0 +1,75 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # ── NestJS API structured logs ──────────────────────────
+  - job_name: nestjs_api
+    static_configs:
+      - targets: [localhost]
+        labels:
+          app: startupsaarthi-api
+          environment: production
+          __path__: /var/log/containers/ss_api*.log
+
+    pipeline_stages:
+      # Parse Docker JSON log wrapper
+      - docker: {}
+      # Parse the inner NestJS JSON log
+      - json:
+          expressions:
+            level: level
+            message: message
+            context: context
+            timestamp: timestamp
+      # Set log level as Loki label
+      - labels:
+          level:
+          context:
+      # Drop debug logs in production
+      - match:
+          selector: '{level="debug"}'
+          action: drop
+
+  # ── Workers logs ─────────────────────────────────────────
+  - job_name: nestjs_workers
+    static_configs:
+      - targets: [localhost]
+        labels:
+          app: startupsaarthi-workers
+          environment: production
+          __path__: /var/log/containers/ss_workers*.log
+    pipeline_stages:
+      - docker: {}
+      - json:
+          expressions:
+            level: level
+            context: context
+      - labels:
+          level:
+          context:
+
+  # ── Nginx access logs ────────────────────────────────────
+  - job_name: nginx
+    static_configs:
+      - targets: [localhost]
+        labels:
+          app: nginx
+          environment: production
+          __path__: /var/log/nginx/access.log
+    pipeline_stages:
+      - json:
+          expressions:
+            status: status
+            method: method
+            uri: uri
+            request_time: request_time
+      - labels:
+          status:
+          method:

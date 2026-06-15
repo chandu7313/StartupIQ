@@ -1,0 +1,316 @@
+name: Deploy — Staging / Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false   # Never cancel a running deployment
+
+env:
+  AWS_REGION: ap-south-1       # Mumbai — closest to India
+  ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ─────────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Docker Images to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      web_image: ${{ steps.meta-web.outputs.tags }}
+      api_image: ${{ steps.meta-api.outputs.tags }}
+      worker_image: ${{ steps.meta-worker.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Web Image ────────────────────────────────
+      - name: Docker metadata (web)
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ECR_REGISTRY }}/startupsaarthi-web
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      - name: Build & Push web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
+
+      # ── API Image ────────────────────────────────
+      - name: Docker metadata (api)
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ECR_REGISTRY }}/startupsaarthi-api
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      - name: Build & Push api image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      # ── Worker Image ─────────────────────────────
+      - name: Docker metadata (workers)
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ECR_REGISTRY }}/startupsaarthi-workers
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      - name: Build & Push workers image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/workers/Dockerfile
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          cache-from: type=gha,scope=workers
+          cache-to: type=gha,mode=max,scope=workers
+
+  # ─────────────────────────────────────────────────
+  migrate:
+    name: Run Prisma Migrations
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: "9"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Prisma migrations
+        run: pnpm --filter @startupsaarthi/db exec prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  # ─────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [build-and-push, migrate]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.startupsaarthi.com
+    if: github.event.inputs.environment != 'production'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy via SSH to staging EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /opt/startupsaarthi
+
+            # Save current image tags for rollback
+            echo "IMAGE_TAG_PREV=$(docker inspect --format='{{.Config.Image}}' startupsaarthi-api 2>/dev/null || echo 'none')" >> /tmp/rollback.env
+
+            # Authenticate with ECR
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+              docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+            # Update image tags in compose env
+            echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" > .env.deploy
+            echo "ECR_REGISTRY=${{ env.ECR_REGISTRY }}" >> .env.deploy
+
+            # Pull new images and redeploy
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "✅ Deployed ${{ env.IMAGE_TAG }} to staging"
+
+      - name: Health check staging
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            for i in {1..5}; do
+              echo "Health check attempt $i/5..."
+              if curl -sf https://staging-api.startupsaarthi.com/health; then
+                echo "✅ Health check passed"
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "❌ Health check failed — rolling back"
+            cd /opt/startupsaarthi
+            source /tmp/rollback.env
+            if [ "$IMAGE_TAG_PREV" != "none" ]; then
+              docker compose -f docker-compose.prod.yml up -d --no-build
+            fi
+            exit 1
+
+      - name: Notify Slack — success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ *Staging deployed successfully*\nCommit: `${{ env.IMAGE_TAG }}`\nBranch: `${{ github.ref_name }}`\nAuthor: ${{ github.actor }}\n🔗 https://staging.startupsaarthi.com"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack — failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "❌ *Staging deployment FAILED*\nCommit: `${{ env.IMAGE_TAG }}`\nAuthor: ${{ github.actor }}\n📋 <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ─────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    needs: [build-and-push, migrate]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://startupsaarthi.com
+    if: github.event.inputs.environment == 'production'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy via SSH to production EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /opt/startupsaarthi
+
+            echo "IMAGE_TAG_PREV=$(docker inspect --format='{{.Config.Image}}' startupsaarthi-api 2>/dev/null || echo 'none')" >> /tmp/rollback.env
+
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+              docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+            echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" > .env.deploy
+            echo "ECR_REGISTRY=${{ env.ECR_REGISTRY }}" >> .env.deploy
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "✅ Deployed ${{ env.IMAGE_TAG }} to production"
+
+      - name: Health check production (5 attempts × 10s)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            for i in {1..5}; do
+              echo "Health check attempt $i/5..."
+              if curl -sf https://api.startupsaarthi.com/health; then
+                echo "✅ Production health check passed"
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "❌ Health check failed — rolling back production"
+            cd /opt/startupsaarthi
+            source /tmp/rollback.env
+            export IMAGE_TAG=$IMAGE_TAG_PREV
+            docker compose -f docker-compose.prod.yml up -d --no-build
+            exit 1
+
+      - name: Notify Slack — success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚀 *Production deployed successfully*\nVersion: `${{ env.IMAGE_TAG }}`\nAuthor: ${{ github.actor }}\n🌐 https://startupsaarthi.com"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack — failure / rollback
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🔥 *PRODUCTION deployment FAILED — ROLLBACK INITIATED*\nCommit: `${{ env.IMAGE_TAG }}`\nAuthor: ${{ github.actor }}\n📋 <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

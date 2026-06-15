@@ -1,0 +1,257 @@
+name: CI — Lint, Test, Build
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+  # ─────────────────────────────────────────────────
+  lint:
+    name: ESLint + Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm turbo lint --filter='./apps/*' --filter='./packages/*'
+
+      - name: Check Prettier formatting
+        run: pnpm exec prettier --check "**/*.{ts,tsx,json,md,yaml}"
+
+  # ─────────────────────────────────────────────────
+  type-check:
+    name: TypeScript type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @startupsaarthi/db db:generate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/startupsaarthi"
+
+      - name: Type check all packages
+        run: pnpm turbo type-check
+
+  # ─────────────────────────────────────────────────
+  test-unit:
+    name: Unit tests (Jest)
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests with coverage
+        run: pnpm turbo test -- --coverage --coverageThreshold='{"global":{"lines":80,"branches":75,"functions":80}}'
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          NODE_ENV: test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  # ─────────────────────────────────────────────────
+  test-e2e:
+    name: Playwright E2E tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: startupsaarthi_test
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run DB migrations
+        run: pnpm --filter @startupsaarthi/db db:push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/startupsaarthi_test
+
+      - name: Build apps for E2E
+        run: pnpm turbo build --filter=@startupsaarthi/web --filter=@startupsaarthi/api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/startupsaarthi_test
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+
+      - name: Start API + Web in background
+        run: |
+          pnpm --filter @startupsaarthi/api start:prod &
+          pnpm --filter @startupsaarthi/web start &
+          npx wait-on http://localhost:3001/health http://localhost:3000 --timeout 60000
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/startupsaarthi_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_TEST }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+          RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
+          FRONTEND_URL: http://localhost:3000
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+
+      - name: Run E2E tests
+        run: pnpm exec playwright test
+        env:
+          BASE_URL: http://localhost:3000
+          TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+
+      - name: Upload Playwright report on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────
+  security:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: false
+
+      - name: Run Snyk vulnerability scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --all-projects
+
+  # ─────────────────────────────────────────────────
+  build:
+    name: Turborepo build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Cache .turbo directory
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @startupsaarthi/db db:generate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/dummy"
+
+      - name: Build all packages and apps
+        run: pnpm turbo build
+        env:
+          NEXT_PUBLIC_API_URL: https://api.startupsaarthi.com
+          NEXT_PUBLIC_WS_URL: wss://api.startupsaarthi.com
+
+      - name: Check build artifacts exist
+        run: |
+          test -d apps/web/.next && echo "✅ Web build OK"
+          test -d apps/api/dist && echo "✅ API build OK"
+          test -d apps/workers/dist && echo "✅ Workers build OK"

@@ -1,39 +1,80 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // Security
-  app.use(helmet());
+  // ── Security ───────────────────────────────────────────────────────────
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],  // Required for Bull Board UI
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
+      },
+    }),
+  );
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature'],
   });
 
-  // Validation & Error Handling
-  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+  // ── Global Pipes, Filters, Interceptors ────────────────────────────────
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,           // Strip unknown properties
+      forbidNonWhitelisted: true,
+      stopAtFirstError: false,
+    }),
+  );
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // Swagger Documentation
-  const config = new DocumentBuilder()
-    .setTitle('StartupSaarthi AI API')
-    .setDescription('The backend API for StartupSaarthi AI validation platform.')
+  // ── Swagger API Documentation ──────────────────────────────────────────
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('StartupSaarthi AI — Backend API')
+    .setDescription(
+      'Multi-agent AI startup validator for Indian founders. ' +
+      'Authenticate with a Clerk JWT Bearer token.',
+    )
     .setVersion('1.0')
-    .addBearerAuth()
+    .addServer('/api/v1', 'V1 Endpoints')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
+    .addTag('Reports', 'AI-powered startup validation reports')
+    .addTag('Ideas', 'Startup idea management')
+    .addTag('Users', 'User profile and plan management')
+    .addTag('Payments', 'Razorpay payments and webhooks')
+    .addTag('Analytics', 'Usage metrics')
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
 
-  // Graceful Shutdown
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: { persistAuthorization: true },
+  });
+
+  // ── Graceful Shutdown ─────────────────────────────────────────────────
   app.enableShutdownHooks();
 
-  const port = process.env.PORT || 3001;
-  await app.listen(port);
-  console.log(`🚀 API is running on: http://localhost:${port}`);
+  // ── Start Server ──────────────────────────────────────────────────────
+  const port = parseInt(process.env.PORT ?? '3001');
+  await app.listen(port, '0.0.0.0');
+
+  logger.log(`🚀 API running on http://localhost:${port}`);
+  logger.log(`📖 Swagger docs at http://localhost:${port}/api/docs`);
+  logger.log(`🐂 Bull Board at http://localhost:${port}/admin/queues`);
 }
+
 bootstrap();
