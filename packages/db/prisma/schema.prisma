@@ -7,68 +7,210 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
 enum Plan {
   FREE
   PRO
   PREMIUM
 }
 
-model User {
-  id             String        @id @default(cuid())
-  clerkUserId    String        @unique // Clerk's user ID
-  email          String        @unique
-  name           String?
-  plan           Plan          @default(FREE)
-  reportsCount   Int           @default(0) // Lifetime reports generated
-  subscriptionId String?       // Razorpay subscription ID
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+enum ReportStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
 
-  ideas          Idea[]
-  reports        Report[]
+enum Industry {
+  EDTECH
+  FINTECH
+  AGRITECH
+  HEALTHTECH
+  SAAS
+  D2C
+  ECOMMERCE
+  LOGISTICS
+  HRTECH
+  PROPTECH
+  LEGALTECH
+  CLIMATETECH
+  DEEPTECH
+  CREATOR_ECONOMY
+  OTHER
+}
+
+enum Geography {
+  INDIA_TIER1
+  INDIA_TIER2_3
+  PAN_INDIA
+  SOUTH_ASIA
+  SOUTHEAST_ASIA
+  GLOBAL
+}
+
+enum Verdict {
+  FUND
+  WATCH
+  PASS
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  clerkId      String   @unique
+  email        String   @unique
+  name         String?
+  avatarUrl    String?
+  plan         Plan     @default(FREE)
+  reportsUsed  Int      @default(0)
+  reportsLimit Int      @default(1)   // FREE=1, PRO=unlimited(-1), PREMIUM=unlimited(-1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ideas        Idea[]
+  reports      Report[]
+  comparisons  Comparison[]
+  payments     Payment[]
+  usageLogs    UsageLog[]
+
+  @@index([clerkId])
+  @@index([email])
+  @@index([plan])
+  @@index([createdAt])
 }
 
 model Idea {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  targetAudience String?
-  monetization  String?
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  reports     Report[]
+  name         String
+  problem      String     @db.Text
+  targetUsers  String
+  industry     Industry
+  geography    Geography  @default(PAN_INDIA)
+  stage        String     @default("idea") // idea, mvp, growth
+  teamSize     Int        @default(1)
+  budget       String     @default("< ₹5L")
+  primarySkill String?    // e.g. "Engineering", "Sales", "Design"
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  reports      Report[]
+
+  @@index([userId])
+  @@index([industry])
+  @@index([createdAt])
 }
 
 model Report {
-  id          String   @id @default(cuid())
-  ideaId      String
-  idea        Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  marketScore Int?
-  insights    Json?
-  competitors Json?
-  risks       Json?
-  timeline    Json?
-  slides      Json?
-  
-  status      String   @default("pending") // pending, processing, completed, failed
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String       @id @default(cuid())
+  ideaId        String
+  idea          Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status        ReportStatus @default(PENDING)
+
+  // Composite scores (0–100)
+  ideaScore        Int?
+  marketScore      Int?
+  moatScore        Int?
+  riskScore        Int?
+  investorScore    Int?
+  verdict          Verdict?
+
+  // AI-generated JSON payloads (one per agent + synthesis)
+  marketData       Json?   // Market Analyst output
+  competitorData   Json?   // Competitor Scout output
+  riskData         Json?   // Risk items from Product Agent
+  monetizationData Json?   // Monetization from VC Agent
+  mvpData          Json?   // MVP timeline from Product Agent
+  gtmData          Json?   // GTM channels from Product Agent
+  investorData     Json?   // VC dimensions from VC Agent
+  pitchData        Json?   // Pitch slides from VC Agent
+
+  // Operational metadata
+  generationTimeMs Int?
+  tokensUsed       Int?    @default(0)
+  errorMessage     String?
+
+  deletedAt     DateTime?   // Soft delete
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  comparisonsAsA Comparison[] @relation("ReportA")
+  comparisonsAsB Comparison[] @relation("ReportB")
+
+  @@index([userId])
+  @@index([ideaId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([deletedAt])
 }
 
-model Subscription {
-  id            String   @id @default(cuid())
-  razorpayId    String   @unique
-  plan          Plan
-  userId        String   @unique
-  status        String   @default("active")
-  currentPeriodEnd DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model Comparison {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reportAId String
+  reportA   Report   @relation("ReportA", fields: [reportAId], references: [id], onDelete: Cascade)
+  reportBId String
+  reportB   Report   @relation("ReportB", fields: [reportBId], references: [id], onDelete: Cascade)
+
+  winner    String?  // reportAId or reportBId
+  analysis  Json?    // Structured AI comparison output
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([reportAId])
+  @@index([reportBId])
+  @@index([createdAt])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?
+  amount            Int      // Amount in paise (INR)
+  currency          String   @default("INR")
+  plan              Plan     // The plan this payment is for
+  status            String   @default("created") // created, captured, failed, refunded
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([razorpayOrderId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  action    String   // e.g. "report.generate", "idea.create", "payment.success"
+  metadata  Json?    // Arbitrary context (reportId, agentName, duration, etc.)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([userId, action])
 }

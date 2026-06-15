@@ -5,13 +5,20 @@
   "types": "./src/index.ts",
   "scripts": {
     "db:generate": "prisma generate",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0"
   },
   "devDependencies": {
     "prisma": "^5.14.0",
+    "ts-node": "^10.9.2",
     "typescript": "5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
