@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as Razorpay from 'razorpay';
+import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -18,8 +18,8 @@ export class PaymentsService {
     });
   }
 
-  async createOrder(clerkUserId: string, amount: number) {
-    const user = await this.prisma.user.findUnique({ where: { clerkUserId } });
+  async createOrder(userId: string, amount: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
 
     const options = {

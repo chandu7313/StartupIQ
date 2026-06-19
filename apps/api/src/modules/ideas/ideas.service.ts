@@ -5,8 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class IdeasService {
   constructor(private prisma: PrismaService) {}
 
-  async createIdea(clerkUserId: string, data: any) {
-    const user = await this.prisma.user.findUnique({ where: { clerkUserId } });
+  async createIdea(userId: string, data: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error('User not found');
 
     return this.prisma.idea.create({

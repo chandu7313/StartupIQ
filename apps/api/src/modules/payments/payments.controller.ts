@@ -13,8 +13,8 @@ export class PaymentsController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Create Razorpay order' })
-  async createOrder(@CurrentUser() user: any, @Body() data: { amount: number }) {
-    return this.paymentsService.createOrder(user.clerkUserId, data.amount);
+  async createOrder(@CurrentUser() userId: string, @Body() data: { amount: number }) {
+    return this.paymentsService.createOrder(userId, data.amount);
   }
 
   @Post('verify')

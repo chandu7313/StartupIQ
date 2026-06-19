@@ -23,7 +23,7 @@ export class IdeasController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new startup idea' })
-  async createIdea(@CurrentUser() user: any, @Body() data: CreateIdeaDto) {
-    return this.ideasService.createIdea(user.clerkUserId, data);
+  async createIdea(@CurrentUser() userId: string, @Body() data: CreateIdeaDto) {
+    return this.ideasService.createIdea(userId, data);
   }
 }
