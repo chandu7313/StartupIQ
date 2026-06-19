@@ -63,8 +63,8 @@ enum Verdict {
 
 model User {
   id           String   @id @default(cuid())
-  clerkId      String   @unique
   email        String   @unique
+  password     String
   name         String?
   avatarUrl    String?
   plan         Plan     @default(FREE)
@@ -79,7 +79,6 @@ model User {
   payments     Payment[]
   usageLogs    UsageLog[]
 
-  @@index([clerkId])
   @@index([email])
   @@index([plan])
   @@index([createdAt])

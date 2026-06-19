@@ -1,18 +1,21 @@
 import { PrismaClient, Plan, Industry, Geography, ReportStatus, Verdict } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Seeding database...');
 
+  const defaultPassword = await bcrypt.hash('password123', 10);
+
   // ── Users ──────────────────────────────────────────
   const [alice, bob, charlie] = await Promise.all([
     prisma.user.upsert({
-      where: { clerkId: 'seed_clerk_alice_001' },
+      where: { email: 'alice@startupsaarthi.dev' },
       update: {},
       create: {
-        clerkId: 'seed_clerk_alice_001',
         email: 'alice@startupsaarthi.dev',
+        password: defaultPassword,
         name: 'Alice Sharma',
         plan: Plan.PRO,
         reportsUsed: 4,
@@ -20,11 +23,11 @@ async function main() {
       },
     }),
     prisma.user.upsert({
-      where: { clerkId: 'seed_clerk_bob_002' },
+      where: { email: 'bob@startupsaarthi.dev' },
       update: {},
       create: {
-        clerkId: 'seed_clerk_bob_002',
         email: 'bob@startupsaarthi.dev',
+        password: defaultPassword,
         name: 'Bob Patel',
         plan: Plan.FREE,
         reportsUsed: 1,
@@ -32,11 +35,11 @@ async function main() {
       },
     }),
     prisma.user.upsert({
-      where: { clerkId: 'seed_clerk_charlie_003' },
+      where: { email: 'charlie@startupsaarthi.dev' },
       update: {},
       create: {
-        clerkId: 'seed_clerk_charlie_003',
         email: 'charlie@startupsaarthi.dev',
+        password: defaultPassword,
         name: 'Charlie Nair',
         plan: Plan.PREMIUM,
         reportsUsed: 12,
