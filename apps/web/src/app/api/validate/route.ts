@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = auth();
-    if (!userId) {
+    const token = cookies().get("token")?.value;
+    if (!token) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${userId}`, // Or proper service token
+        "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     });
