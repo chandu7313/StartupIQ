@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Settings | StartupSaarthi AI",
+  title: "Settings | startupIQ",
   description: "Manage your institutional profile and preferences.",
 };
 
@@ -17,7 +17,7 @@ export default function SettingsPage() {
             Sovereign Analyst
           </span>
           <span className="font-body text-xs text-slate-400 mt-1 block">
-            StartupSaarthi AI
+            startupIQ
           </span>
         </div>
 
