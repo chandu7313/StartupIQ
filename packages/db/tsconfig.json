@@ -1,5 +1,5 @@
 {
-  "extends": "@startupsaarthi/config/tsconfig.node.json",
+  "extends": "@startupiq/config/tsconfig.node.json",
   "compilerOptions": {
     "baseUrl": "./",
     "paths": {
