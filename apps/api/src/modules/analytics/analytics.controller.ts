@@ -33,7 +33,7 @@ export class AnalyticsController {
     return {
       totalReports,
       avgScore: Math.round(avgScore),
-      validationsLeft: dbUser.plan === 'FREE' ? Math.max(0, dbUser.reportsLimit - dbUser.reportsUsed) : 'Unlimited',
+      credits: dbUser.credits,
     };
   }
 }

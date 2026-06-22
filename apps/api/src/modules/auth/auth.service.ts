@@ -35,7 +35,7 @@ export class AuthService {
 
     return {
       token,
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan },
+      user: { id: user.id, email: user.email, name: user.name, credits: user.credits },
     };
   }
 
@@ -58,7 +58,7 @@ export class AuthService {
 
     return {
       token,
-      user: { id: user.id, email: user.email, name: user.name, plan: user.plan },
+      user: { id: user.id, email: user.email, name: user.name, credits: user.credits },
     };
   }
 
@@ -69,10 +69,8 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
-        plan: true,
+        credits: true,
         avatarUrl: true,
-        reportsUsed: true,
-        reportsLimit: true,
       },
     });
 
