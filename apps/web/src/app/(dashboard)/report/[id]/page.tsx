@@ -4,6 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useReportSocket } from "@/hooks/useReportSocket";
 import { apiClient } from "@/lib/api-client";
+import { ReportProgressBar } from "@/components/features/ReportProgressBar";
+import { DownloadReportBtn } from "@/components/features/DownloadReportBtn";
+import { ShareReportBtn } from "@/components/features/ShareReportBtn";
+import { NameGeneratorWidget } from "@/components/features/NameGeneratorWidget";
 
 const gauges = [
   { label: "Market Potential", score: 85, offset: 37.68, color: "text-secondary" },
@@ -17,7 +21,7 @@ const tabs = ["Market Analysis", "Product", "Competitors", "Financials", "Team",
 export default function ReportPage({ params }: { params: { id: string } }) {
   const [report, setReport] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
-  const { progress } = useReportSocket(params.id);
+  const { status, percent, stage, message, position, estimatedWait, error } = useReportSocket(params.id);
 
   React.useEffect(() => {
     async function loadReport() {
@@ -31,45 +35,28 @@ export default function ReportPage({ params }: { params: { id: string } }) {
       }
     }
     loadReport();
-  }, [params.id, progress]); // Re-fetch when progress updates
+  }, [params.id, percent]); // Re-fetch when progress updates
 
-  if (loading) {
+  // If WebSocket says DONE, or DB report says DONE, we show the full UI.
+  const isFinished = status === 'DONE' || report?.status === "DONE";
+  
+  if (loading || (!isFinished && status !== 'DISCONNECTED')) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-surface">
-        <div className="text-center">
-          <span className="material-symbols-outlined animate-spin text-4xl text-primary mb-4">sync</span>
-          <h2 className="text-xl font-bold text-on-surface">Loading Report...</h2>
-        </div>
-      </div>
-    );
-  }
-
-  if (report?.status === "PROCESSING" || report?.status === "PENDING") {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-surface px-4">
-        <div className="max-w-md w-full bg-surface-container-lowest p-8 rounded-xl ambient-shadow text-center">
-          <div className="relative w-24 h-24 mx-auto mb-6">
-            <svg className="w-full h-full animate-spin" viewBox="0 0 100 100">
-              <circle className="text-surface-container-high stroke-current" cx="50" cy="50" fill="transparent" r="40" strokeWidth="8" />
-              <circle className="text-secondary stroke-current" cx="50" cy="50" fill="transparent" r="40" strokeDasharray="251.2" strokeDashoffset={251.2 - (251.2 * (progress?.progress || 10)) / 100} strokeLinecap="round" strokeWidth="8" style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", transition: "stroke-dashoffset 0.5s ease-in-out" }} />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg">{progress?.progress || 10}%</div>
-          </div>
-          <h2 className="text-2xl font-bold text-on-surface mb-2">Analyzing Idea</h2>
-          <p className="text-on-surface-variant text-sm mb-4">
-            {progress?.stage || "Waking up AI agents..."}
-          </p>
-          <div className="h-1 w-full bg-surface-container-high rounded-full overflow-hidden">
-             <div className="h-full bg-primary-container transition-all duration-500" style={{ width: `${progress?.progress || 10}%` }} />
-          </div>
-        </div>
-      </div>
+      <ReportProgressBar 
+        status={status}
+        percent={percent}
+        stage={stage}
+        message={message}
+        position={position}
+        estimatedWait={estimatedWait}
+        error={error}
+      />
     );
   }
 
   const ideaName = report?.idea?.name || "Startup Idea";
   const industry = report?.idea?.industry || "Tech";
-  const stage = report?.idea?.stage || "Idea";
+  const ideaStage = report?.idea?.stage || "Idea";
   const verdict = report?.data?.vcScore?.verdict || "Analysis Complete";
   const conviction = report?.data?.vcScore?.score || "N/A";
 
@@ -116,18 +103,14 @@ export default function ReportPage({ params }: { params: { id: string } }) {
           <div className="flex items-center gap-4">
             <h1 className="font-headline text-3xl font-extrabold text-on-surface tracking-tight">{ideaName}</h1>
             <span className="bg-surface-container text-on-surface-variant font-label text-xs px-3 py-1 rounded-full uppercase tracking-wider font-semibold">{industry}</span>
-            <span className="bg-secondary-container text-on-secondary-fixed font-label text-xs px-3 py-1 rounded-full uppercase tracking-wider font-semibold">{stage}</span>
+            <span className="bg-secondary-container text-on-secondary-fixed font-label text-xs px-3 py-1 rounded-full uppercase tracking-wider font-semibold">{ideaStage}</span>
           </div>
           <div className="flex items-center gap-4">
             <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low rounded-lg transition-colors">
               <span className="material-symbols-outlined text-[20px]">compare_arrows</span>Compare
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low rounded-lg transition-colors">
-              <span className="material-symbols-outlined text-[20px]">share</span>Share
-            </button>
-            <button className="bg-gradient-to-b from-primary to-primary-container text-on-primary flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium hover:scale-[0.98] transition-transform">
-              <span className="material-symbols-outlined text-[20px]">download</span>Download PDF
-            </button>
+            <ShareReportBtn reportId={params.id} initialToken={report.shareToken} />
+            <DownloadReportBtn reportId={params.id} />
           </div>
         </header>
 
@@ -175,6 +158,9 @@ export default function ReportPage({ params }: { params: { id: string } }) {
               ))}
             </div>
           </section>
+
+          {/* AI Startup Naming Engine */}
+          <NameGeneratorWidget idea={report?.idea?.description || ""} industry={report?.idea?.industry || ""} geography={report?.idea?.geography || ""} />
 
           {/* ── Tab Navigation ────────────────────────────────── */}
           <section>

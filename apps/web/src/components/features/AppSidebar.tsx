@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { LayoutDashboard, FileText, PlusCircle, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@startupiq/ui";
+import { BillingStatus } from "./BillingStatus";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -66,14 +67,8 @@ export const AppSidebar = () => {
           );
         })}
       </nav>
-
       <div className="border-t p-4 flex flex-col gap-4">
-        {!isCollapsed && (
-          <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 p-3 text-white text-xs shadow-md">
-            <p className="font-semibold mb-1">Pro Plan</p>
-            <p className="opacity-80">3 validations remaining</p>
-          </div>
-        )}
+        <BillingStatus isCollapsed={isCollapsed} />
         <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
           <button onClick={handleLogout} className="flex h-8 items-center justify-center rounded-md bg-rose-500/10 text-rose-600 px-3 hover:bg-rose-500/20 text-xs font-bold transition-colors">
             Log Out

@@ -4,7 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PlanUpgradeModal } from "@/components/features/PlanUpgradeModal";
 import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { LanguageToggle } from "@/components/features/LanguageToggle";
 
 const steps = [
   { label: "Basics", num: 1 },
@@ -34,6 +37,9 @@ export default function NewValidationPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = React.useState(false);
+  const [upgradeMessage, setUpgradeMessage] = React.useState("");
+  const { t, language } = useLanguage();
 
   const [form, setForm] = React.useState({
     name: "",
@@ -45,9 +51,10 @@ export default function NewValidationPage() {
     teamSize: "",
     budget: "",
     primarySkill: "",
+    focusIndia: false,
   });
 
-  const update = (field: string, value: string) =>
+  const update = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async () => {
@@ -61,7 +68,7 @@ export default function NewValidationPage() {
           description: form.problem,
           targetAudience: form.targetUsers,
           industry: form.industry,
-          geography: form.geography,
+          geography: form.focusIndia ? "India" : form.geography,
           stage: form.stage,
           teamSize: form.teamSize ? parseInt(form.teamSize) : 1,
           budget: form.budget,
@@ -76,17 +83,23 @@ export default function NewValidationPage() {
           ideaId: ideaResponse.id,
           ideaDescription: form.problem,
           industry: form.industry,
-          geography: form.geography,
+          geography: form.focusIndia ? "India" : form.geography,
           stage: form.stage,
           teamSize: form.teamSize ? parseInt(form.teamSize) : 1,
           budget: form.budget,
+          language: language,
         },
       });
 
       toast.success("Validation submitted! Generating report...");
       router.push(`/report/${reportResponse.reportId}`);
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong.");
+      if (err.status === 402) {
+        setUpgradeMessage(err.message || "You've used your 1 free report this month.");
+        setShowUpgradeModal(true);
+      } else {
+        toast.error(err.message || "Something went wrong.");
+      }
     } finally {
       setLoading(false);
     }
@@ -97,6 +110,15 @@ export default function NewValidationPage() {
 
   return (
     <div className="bg-surface text-on-surface flex h-screen overflow-hidden font-body">
+      <PlanUpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)}
+        message={upgradeMessage}
+        onSuccess={() => {
+          setShowUpgradeModal(false);
+          handleSubmit();
+        }}
+      />
       {/* ── SideNavBar ───────────────────────────────────────── */}
       <nav className="bg-[#131b2e] h-screen w-64 fixed left-0 top-0 z-40 flex flex-col p-6 space-y-8 shadow-[4px_0_24px_rgba(0,0,0,0.1)]">
         <div>
@@ -157,13 +179,14 @@ export default function NewValidationPage() {
         <header className="sticky top-0 z-30 bg-surface-container-lowest/80 backdrop-blur-md px-12 py-6 flex justify-between items-center border-b border-surface-container-high/50">
           <div>
             <h1 className="font-headline text-2xl font-bold text-on-surface tracking-tight">
-              New Idea Submission
+              {t('nav.newReport')}
             </h1>
             <p className="font-body text-on-surface-variant text-sm mt-1">
               Provide initial parameters for preliminary analysis.
             </p>
           </div>
           <div className="flex items-center space-x-4">
+            <LanguageToggle />
             <span className="material-symbols-outlined text-on-surface-variant">
               notifications
             </span>
@@ -220,11 +243,11 @@ export default function NewValidationPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div>
                       <label className="font-label text-sm text-on-surface-variant block mb-1">
-                        Project / Idea Name
+                        {t('field.startupName')}
                       </label>
                       <input
                         className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background transition-colors"
-                        placeholder="e.g., Project Phoenix"
+                        placeholder={t('field.startupName.placeholder')}
                         value={form.name}
                         onChange={(e) => update("name", e.target.value)}
                       />
@@ -254,11 +277,11 @@ export default function NewValidationPage() {
                   </div>
                   <div>
                     <label className="font-label text-sm text-on-surface-variant block mb-1">
-                      Problem Statement
+                      {t('field.problem')}
                     </label>
                     <textarea
                       className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background resize-none transition-colors"
-                      placeholder="Describe the core problem this idea solves..."
+                      placeholder={t('field.problem.placeholder')}
                       rows={3}
                       value={form.problem}
                       onChange={(e) => update("problem", e.target.value)}
@@ -306,18 +329,18 @@ export default function NewValidationPage() {
                     </div>
                     <div>
                       <label className="font-label text-sm text-on-surface-variant block mb-1">
-                        Stage
+                        {t('field.stage')}
                       </label>
                       <select
-                        className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background appearance-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background transition-colors appearance-none"
                         value={form.stage}
                         onChange={(e) => update("stage", e.target.value)}
                       >
-                        <option value="" disabled>
-                          Select stage
-                        </option>
-                        {stages.map((s) => (
-                          <option key={s}>{s}</option>
+                        <option value="" disabled>Select stage</option>
+                        {stages.map((stg) => (
+                          <option key={stg} value={stg} className="bg-surface">
+                            {stg}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -325,24 +348,23 @@ export default function NewValidationPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div>
                       <label className="font-label text-sm text-on-surface-variant block mb-1">
-                        Team Size
+                        {t('field.teamSize')}
                       </label>
                       <input
-                        className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background transition-colors"
-                        placeholder="e.g., 3"
                         type="number"
+                        className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background transition-colors"
+                        placeholder="e.g. 2"
                         value={form.teamSize}
                         onChange={(e) => update("teamSize", e.target.value)}
                       />
                     </div>
                     <div>
                       <label className="font-label text-sm text-on-surface-variant block mb-1">
-                        Budget ($)
+                        {t('field.budget')}
                       </label>
                       <input
                         className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background transition-colors"
-                        placeholder="e.g., 50000"
-                        type="number"
+                        placeholder={t('field.budget.placeholder')}
                         value={form.budget}
                         onChange={(e) => update("budget", e.target.value)}
                       />
@@ -350,14 +372,26 @@ export default function NewValidationPage() {
                   </div>
                   <div>
                     <label className="font-label text-sm text-on-surface-variant block mb-1">
-                      Primary Skill of Founding Team
+                      {t('field.primarySkill')}
                     </label>
                     <input
                       className="w-full bg-transparent border-0 border-b border-outline-variant/50 focus:border-primary focus:ring-0 px-0 py-2 font-body text-on-background transition-colors"
-                      placeholder="e.g., Engineering, Sales, Product"
+                      placeholder={t('field.primarySkill.placeholder')}
                       value={form.primarySkill}
                       onChange={(e) => update("primarySkill", e.target.value)}
                     />
+                  </div>
+                  <div className="flex items-center space-x-3 mt-6">
+                    <input
+                      type="checkbox"
+                      id="focusIndia"
+                      checked={form.focusIndia}
+                      onChange={(e) => update("focusIndia", e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-600 text-primary focus:ring-primary bg-transparent cursor-pointer"
+                    />
+                    <label htmlFor="focusIndia" className="font-body text-sm text-on-surface cursor-pointer">
+                      {t('field.focusIndia')}
+                    </label>
                   </div>
                 </div>
               </>

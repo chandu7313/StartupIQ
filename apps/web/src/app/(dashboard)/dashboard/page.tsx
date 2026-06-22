@@ -3,6 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { ReportTrendChart } from "@/components/features/ReportTrendChart";
+import { IndustryDistChart } from "@/components/features/IndustryDistChart";
 
 const mockReports = [
   {
@@ -117,30 +119,25 @@ export default function DashboardPage() {
             href="/dashboard"
             className="flex items-center gap-3 px-4 py-3 bg-white/10 text-white rounded-lg font-bold transition-transform duration-200"
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              dashboard
-            </span>
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
             Dashboard
           </Link>
           <Link
-            href="/validate/new"
+            href="/compare"
             className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
           >
-            <span className="material-symbols-outlined">edit_note</span>
-            Input
+            <span className="material-symbols-outlined">compare_arrows</span>
+            Compare Ideas
           </Link>
           <Link
-            href="/dashboard"
+            href="/competitors"
             className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
           >
-            <span className="material-symbols-outlined">analytics</span>
-            Reports
+            <span className="material-symbols-outlined">query_stats</span>
+            Competitors
           </Link>
           <Link
-            href="/dashboard"
+            href="/settings"
             className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
           >
             <span className="material-symbols-outlined">settings</span>
@@ -353,37 +350,28 @@ export default function DashboardPage() {
             </section>
           </div>
 
-          {/* ── Right Column: Sector Vectors ─────────────────────── */}
+          {/* ── Right Column: Analytics ─────────────────────── */}
           <aside className="col-span-4 flex flex-col gap-8">
             <div className="bg-surface-container p-6 rounded-xl flex flex-col gap-6">
               <h3 className="font-headline text-lg font-bold tracking-tight text-on-surface border-b border-outline-variant/15 pb-3">
-                Sector Vectors
+                Validation Velocity (30d)
               </h3>
-              <div className="flex flex-col gap-4">
-                {sectorVectors.map((sector) => (
-                  <div key={sector.name} className="flex flex-col gap-2 mt-2 first:mt-0">
-                    <div className="flex justify-between items-center">
-                      <span className="font-body text-sm font-semibold text-on-surface">
-                        {sector.name}
-                      </span>
-                      <span
-                        className={`material-symbols-outlined ${sector.trendColor} text-sm`}
-                      >
-                        {sector.trending}
-                      </span>
-                    </div>
-                    <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
-                      <div
-                        className={`${sector.color} h-full rounded-full`}
-                        style={{ width: sector.width }}
-                      />
-                    </div>
-                    <span className="font-label text-xs text-on-surface-variant">
-                      {sector.confidence} • {sector.count} validations
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {!loading && reports.length > 0 ? (
+                <ReportTrendChart reports={reports} />
+              ) : (
+                <div className="h-[180px] flex items-center justify-center text-on-surface-variant text-sm">Not enough data</div>
+              )}
+            </div>
+
+            <div className="bg-surface-container p-6 rounded-xl flex flex-col gap-6">
+              <h3 className="font-headline text-lg font-bold tracking-tight text-on-surface border-b border-outline-variant/15 pb-3">
+                Industry Distribution
+              </h3>
+              {!loading && reports.length > 0 ? (
+                <IndustryDistChart reports={reports} />
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-on-surface-variant text-sm">Not enough data</div>
+              )}
             </div>
 
             {/* Analyst Note */}
