@@ -8,7 +8,9 @@ import { ReportGateway } from './report.gateway';
 import { ReportWorker } from './report.worker';
 import { ReportProducer } from './report.producer';
 import { IdeaDedupService } from './idea-dedup.service';
+import { PdfService } from './pdf.service';
 import { AiModule } from '../ai/ai.module';
+import { UsersModule } from '../users/users.module';
 
 const REPORT_QUEUE = 'report-generation';
 const DLQ_NAME = 'report-generation-dlq';
@@ -16,6 +18,7 @@ const DLQ_NAME = 'report-generation-dlq';
 @Module({
   imports: [
     AiModule,
+    UsersModule,
     // Main queue
     BullModule.registerQueue({ name: REPORT_QUEUE }),
     // Dead Letter Queue — failed jobs land here after all retries exhausted
@@ -36,8 +39,9 @@ const DLQ_NAME = 'report-generation-dlq';
     ReportWorker,
     ReportProducer,
     IdeaDedupService,
+    PdfService,
   ],
   controllers: [ReportsController],
-  exports: [ReportProducer, IdeaDedupService, ReportsService],
+  exports: [ReportProducer, IdeaDedupService, ReportsService, PdfService],
 })
 export class ReportsModule {}

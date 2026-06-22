@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Plan } from '@prisma/client';
+
 
 export interface GenerateReportJobData {
   reportId: string;
@@ -12,16 +12,11 @@ export interface GenerateReportJobData {
   stage: string;
   teamSize: number;
   budget: string;
-  userPlan: Plan;
+  language: string;
   ideaHash?: string;
 }
 
-/** Lower number = higher priority in BullMQ */
-const PLAN_PRIORITY: Record<Plan, number> = {
-  PREMIUM: 1,
-  PRO: 5,
-  FREE: 10,
-};
+
 
 /** Exponential backoff delays in ms: 30s, 2m, 10m */
 const BACKOFF_DELAYS = [30_000, 120_000, 600_000];
@@ -36,7 +31,7 @@ export class ReportProducer {
   ) {}
 
   async addJob(data: GenerateReportJobData): Promise<string> {
-    const priority = PLAN_PRIORITY[data.userPlan];
+    const priority = 5; // Default priority for all credit-based jobs
 
     const job = await this.queue.add('generate-report', data, {
       priority,
@@ -47,7 +42,7 @@ export class ReportProducer {
     });
 
     this.logger.log(
-      `📥 Job ${job.id} queued | report: ${data.reportId} | plan: ${data.userPlan} | priority: ${priority}`,
+      `📥 Job ${job.id} queued | report: ${data.reportId} | priority: ${priority}`,
     );
 
     return job.id as string;

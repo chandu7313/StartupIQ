@@ -61,6 +61,7 @@ export class ReportWorker extends WorkerHost {
         stage: data.stage,
         teamSize: data.teamSize,
         budget: data.budget,
+        language: data.language,
       });
 
       await job.updateProgress(90);
