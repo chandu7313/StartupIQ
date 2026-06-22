@@ -4,6 +4,7 @@
 
 // --------- Market Agent ---------
 export interface MarketAgentInput {
+  language?: string;
   ideaDescription: string;
   industry: string;
   geography: string;
@@ -21,6 +22,8 @@ export interface MarketAgentOutput {
 
 // --------- Competitor Agent ---------
 export interface CompetitorAgentInput {
+  language?: string;
+  geography: string;
   ideaDescription: string;
   industry: string;
 }
@@ -41,6 +44,8 @@ export interface CompetitorAgentOutput {
 
 // --------- Product Agent ---------
 export interface ProductAgentInput {
+  language?: string;
+  geography: string;
   ideaDescription: string;
   stage: string;
   teamSize: number;
@@ -77,6 +82,8 @@ export interface ProductAgentOutput {
 
 // --------- VC Agent ---------
 export interface VcAgentInput {
+  language?: string;
+  geography: string;
   ideaDescription: string;
   marketData: MarketAgentOutput;
   competitorData: CompetitorAgentOutput;

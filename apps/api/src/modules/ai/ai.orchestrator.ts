@@ -95,13 +95,14 @@ export class AiOrchestrator {
     let productOutput: ProductAgentOutput;
 
     try {
-      [marketOutput, competitorOutput, productOutput] = await Promise.all([
+      const [marketResult, competitorResult, productResult] = await Promise.allSettled([
         this.withRetry(
           () =>
             this.marketAgent.run({
               ideaDescription: input.ideaDescription,
               industry: input.industry,
               geography: input.geography,
+              language: input.language,
             }),
           'MarketAgent',
         ).then((result) => {
@@ -117,6 +118,8 @@ export class AiOrchestrator {
             this.competitorAgent.run({
               ideaDescription: input.ideaDescription,
               industry: input.industry,
+              geography: input.geography,
+              language: input.language,
             }),
           'CompetitorAgent',
         ).then((result) => {
@@ -134,6 +137,8 @@ export class AiOrchestrator {
               stage: input.stage,
               teamSize: input.teamSize,
               budget: input.budget,
+              geography: input.geography,
+              language: input.language,
             }),
           'ProductAgent',
         ).then((result) => {
@@ -144,6 +149,31 @@ export class AiOrchestrator {
           return result;
         }),
       ]);
+
+      // Handle Promise.allSettled results with fallbacks
+      marketOutput = marketResult.status === 'fulfilled' ? marketResult.value : {
+        tam: { inrCr: 0, usdM: 0, cagr: 0 },
+        sam: { inrCr: 0, usdM: 0 },
+        som: { inrCr: 0, usdM: 0 },
+        analysis: "Market analysis failed to generate. Please try again later.",
+        icp: "N/A",
+        tailwinds: ["Data unavailable", "Data unavailable", "Data unavailable"],
+        governmentSchemes: []
+      };
+
+      competitorOutput = competitorResult.status === 'fulfilled' ? competitorResult.value : {
+        competitors: Array(6).fill({
+          name: "Unknown", type: "Direct", hq: "Unknown", fundingStage: "Unknown", totalFunding: "Unknown", weakness: "Data unavailable", pricing: "Unknown"
+        })
+      };
+
+      productOutput = productResult.status === 'fulfilled' ? productResult.value : {
+        mvp: Array(4).fill({ phase: 1, title: "Unknown", duration: "Unknown", tasks: [], milestone: "Unknown" }),
+        gtm: Array(5).fill({ channel: "Unknown", strategy: "Unknown", expectedCAC: "Unknown" }),
+        risks: Array(6).fill({ category: "Unknown", description: "Unknown", severity: "Medium", mitigation: "Unknown" }),
+        recommendedStack: []
+      };
+
     } catch (err) {
       this.reportGateway.emitProgress(input.reportId, 'failed', -1, {
         message: `Agent failure: ${(err as Error).message}`,
@@ -161,6 +191,8 @@ export class AiOrchestrator {
           marketData: marketOutput,
           competitorData: competitorOutput,
           productData: productOutput,
+          geography: input.geography,
+          language: input.language,
         }),
       'VcAgent',
     );
