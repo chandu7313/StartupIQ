@@ -1,10 +1,14 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { MarketAgent } from './agents/market.agent';
 import { CompetitorAgent } from './agents/competitor.agent';
 import { ProductAgent } from './agents/product.agent';
 import { VcAgent } from './agents/vc.agent';
+import { BusinessFormationAgent } from './agents/business-formation.agent';
+import { ComplianceAgent } from './agents/compliance.agent';
+import { FinancialAgent } from './agents/financial.agent';
+import { OperationsAgent } from './agents/operations.agent';
 import { ReportGateway } from '../reports/report.gateway';
 import {
   OrchestratorInput,
@@ -12,20 +16,26 @@ import {
   MarketAgentOutput,
   CompetitorAgentOutput,
   ProductAgentOutput,
+  BusinessFormationAgentOutput,
+  ComplianceAgentOutput,
+  FinancialAgentOutput,
+  OperationsAgentOutput,
 } from './ai.types';
 
 const CACHE_TTL_24H = 60 * 60 * 24; // 24 hours in seconds
 
 /**
- * AiOrchestrator acts as the central brain of the AI evaluation process.
- * It follows the Parallel-Agent pattern to reduce generation latency.
- * 
- * Flow:
- * 1. Checks Redis cache for existing reports to prevent duplicate API costs.
- * 2. Concurrently executes Market, Competitor, and Product specialized LLM agents.
- * 3. Utilizes exponential backoff for retry mechanisms across all LLM boundaries.
- * 4. Synthesizes the parallel outputs via the final VcAgent (Synthesis Agent).
- * 5. Streams real-time progress via ReportGateway WebSockets.
+ * AiOrchestrator — VentureForge AI's central intelligence engine.
+ * Runs 8 specialist agents in a two-stage parallel pipeline to generate
+ * a complete Business DNA report covering all 14 dimensions.
+ *
+ * Stage 1 (Parallel): Market, Competitor, Product, Business Formation, Compliance, Financial, Operations
+ * Stage 2 (Sequential): VC/Synthesis Agent — merges all outputs into final scores and pitch materials
+ *
+ * Features:
+ * - Redis cache to prevent duplicate API costs
+ * - Exponential backoff retry for all LLM calls
+ * - Real-time WebSocket progress streaming
  */
 @Injectable()
 export class AiOrchestrator {
@@ -36,7 +46,11 @@ export class AiOrchestrator {
     private readonly competitorAgent: CompetitorAgent,
     private readonly productAgent: ProductAgent,
     private readonly vcAgent: VcAgent,
-    private readonly reportGateway: ReportGateway,
+    private readonly businessFormationAgent: BusinessFormationAgent,
+    private readonly complianceAgent: ComplianceAgent,
+    private readonly financialAgent: FinancialAgent,
+    private readonly operationsAgent: OperationsAgent,
+    @Inject(forwardRef(() => ReportGateway)) private readonly reportGateway: ReportGateway,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
@@ -67,12 +81,12 @@ export class AiOrchestrator {
   }
 
   /**
-   * Orchestrates the complete end-to-end report generation process.
-   * Runs the first stage of agents concurrently to maximize speed and bounds them in a Promise.all().
-   * Streams progress back to the frontend on each stage boundary.
+   * Orchestrates the complete Business DNA report generation.
+   * Runs 7 agents in parallel (Stage 1) then the VC synthesis agent (Stage 2).
+   * Streams progress to the frontend via WebSocket at each stage boundary.
    *
    * @param input The raw input parameters provided by the user.
-   * @returns A synthesized OrchestratorOutput containing all AI sections.
+   * @returns A complete OrchestratorOutput containing all 8 agent outputs.
    * @throws Will throw if any agent fails after max retries.
    */
   async run(input: OrchestratorInput): Promise<OrchestratorOutput> {
@@ -85,17 +99,30 @@ export class AiOrchestrator {
       return cached;
     }
 
-    this.logger.log(`[Orchestrator] Starting parallel agent execution for report: ${input.reportId}`);
+    this.logger.log(`[Orchestrator] Starting 8-agent parallel execution for report: ${input.reportId}`);
 
-    // --- Stage 1: Run Agents 1-3 in parallel ---
-    this.reportGateway.emitProgress(input.reportId, 'starting', 0, { message: 'Initialising AI agents...' });
+    // --- Stage 1: Run 7 Agents in parallel ---
+    this.reportGateway.emitProgress(input.reportId, 'starting', 0, { message: 'Initialising VentureForge AI agents...' });
 
     let marketOutput: MarketAgentOutput;
     let competitorOutput: CompetitorAgentOutput;
     let productOutput: ProductAgentOutput;
+    let businessFormationOutput: BusinessFormationAgentOutput;
+    let complianceOutput: ComplianceAgentOutput;
+    let financialOutput: FinancialAgentOutput;
+    let operationsOutput: OperationsAgentOutput;
 
     try {
-      const [marketResult, competitorResult, productResult] = await Promise.allSettled([
+      const [
+        marketResult,
+        competitorResult,
+        productResult,
+        businessFormationResult,
+        complianceResult,
+        financialResult,
+        operationsResult,
+      ] = await Promise.allSettled([
+        // Agent 1: Market Analyst
         this.withRetry(
           () =>
             this.marketAgent.run({
@@ -106,13 +133,14 @@ export class AiOrchestrator {
             }),
           'MarketAgent',
         ).then((result) => {
-          this.reportGateway.emitProgress(input.reportId, 'market_analysis', 25, {
-            message: 'Market analysis complete.',
+          this.reportGateway.emitProgress(input.reportId, 'market_analysis', 14, {
+            message: '📊 Market analysis complete — TAM/SAM/SOM calculated.',
             data: result,
           });
           return result;
         }),
 
+        // Agent 2: Competitor Scout
         this.withRetry(
           () =>
             this.competitorAgent.run({
@@ -123,13 +151,14 @@ export class AiOrchestrator {
             }),
           'CompetitorAgent',
         ).then((result) => {
-          this.reportGateway.emitProgress(input.reportId, 'competitor_scout', 50, {
-            message: 'Competitor analysis complete.',
+          this.reportGateway.emitProgress(input.reportId, 'competitor_scout', 28, {
+            message: '🔍 Competitor intelligence gathered — SWOT analysis ready.',
             data: result,
           });
           return result;
         }),
 
+        // Agent 3: Product Strategist
         this.withRetry(
           () =>
             this.productAgent.run({
@@ -142,8 +171,90 @@ export class AiOrchestrator {
             }),
           'ProductAgent',
         ).then((result) => {
-          this.reportGateway.emitProgress(input.reportId, 'product_strategy', 75, {
-            message: 'Product & GTM strategy complete.',
+          this.reportGateway.emitProgress(input.reportId, 'product_strategy', 42, {
+            message: '🚀 Product strategy & GTM plan generated.',
+            data: result,
+          });
+          return result;
+        }),
+
+        // Agent 4: Business Formation
+        this.withRetry(
+          () =>
+            this.businessFormationAgent.run({
+              ideaDescription: input.ideaDescription,
+              industry: input.industry,
+              geography: input.geography,
+              teamSize: input.teamSize,
+              state: input.state,
+              businessType: input.businessType,
+              language: input.language,
+            }),
+          'BusinessFormationAgent',
+        ).then((result) => {
+          this.reportGateway.emitProgress(input.reportId, 'business_formation', 52, {
+            message: '🏛️ Legal structure & banking setup recommended.',
+            data: result,
+          });
+          return result;
+        }),
+
+        // Agent 5: Compliance & Registration
+        this.withRetry(
+          () =>
+            this.complianceAgent.run({
+              ideaDescription: input.ideaDescription,
+              industry: input.industry,
+              geography: input.geography,
+              state: input.state,
+              businessType: input.businessType,
+              language: input.language,
+            }),
+          'ComplianceAgent',
+        ).then((result) => {
+          this.reportGateway.emitProgress(input.reportId, 'compliance', 62, {
+            message: '📋 Compliance checklist & tax structure generated.',
+            data: result,
+          });
+          return result;
+        }),
+
+        // Agent 6: Financial Intelligence
+        this.withRetry(
+          () =>
+            this.financialAgent.run({
+              ideaDescription: input.ideaDescription,
+              industry: input.industry,
+              geography: input.geography,
+              budget: input.budget,
+              teamSize: input.teamSize,
+              language: input.language,
+            }),
+          'FinancialAgent',
+        ).then((result) => {
+          this.reportGateway.emitProgress(input.reportId, 'financial', 72, {
+            message: '💰 Financial projections & funding plan created.',
+            data: result,
+          });
+          return result;
+        }),
+
+        // Agent 7: Operations & Infrastructure
+        this.withRetry(
+          () =>
+            this.operationsAgent.run({
+              ideaDescription: input.ideaDescription,
+              industry: input.industry,
+              geography: input.geography,
+              state: input.state,
+              businessType: input.businessType,
+              teamSize: input.teamSize,
+              language: input.language,
+            }),
+          'OperationsAgent',
+        ).then((result) => {
+          this.reportGateway.emitProgress(input.reportId, 'operations', 85, {
+            message: '⚙️ Operations blueprint, SOPs & launch checklist ready.',
             data: result,
           });
           return result;
@@ -157,21 +268,75 @@ export class AiOrchestrator {
         som: { inrCr: 0, usdM: 0 },
         analysis: "Market analysis failed to generate. Please try again later.",
         icp: "N/A",
-        tailwinds: ["Data unavailable", "Data unavailable", "Data unavailable"],
-        governmentSchemes: []
+        tailwinds: ["Data unavailable"],
+        governmentSchemes: [],
+        marketTrends: [],
       };
 
       competitorOutput = competitorResult.status === 'fulfilled' ? competitorResult.value : {
         competitors: Array(6).fill({
-          name: "Unknown", type: "Direct", hq: "Unknown", fundingStage: "Unknown", totalFunding: "Unknown", weakness: "Data unavailable", pricing: "Unknown"
-        })
+          name: "Unknown", type: "Direct" as const, hq: "Unknown", fundingStage: "Unknown", totalFunding: "Unknown", weakness: "Data unavailable", pricing: "Unknown"
+        }),
+        swotAnalysis: [],
+        positioningMap: { xAxis: "Price", yAxis: "Quality", competitors: [] },
+        whitespaceOpportunities: [],
       };
 
       productOutput = productResult.status === 'fulfilled' ? productResult.value : {
         mvp: Array(4).fill({ phase: 1, title: "Unknown", duration: "Unknown", tasks: [], milestone: "Unknown" }),
         gtm: Array(5).fill({ channel: "Unknown", strategy: "Unknown", expectedCAC: "Unknown" }),
-        risks: Array(6).fill({ category: "Unknown", description: "Unknown", severity: "Medium", mitigation: "Unknown" }),
-        recommendedStack: []
+        risks: Array(6).fill({ category: "market" as const, description: "Unknown", severity: "Medium" as const, mitigation: "Unknown" }),
+        recommendedStack: [],
+        successPrediction: { survivalProbability: 0, fundingProbability: 0, threeYearGrowthPotential: "N/A", estimatedValuation: "N/A" },
+      };
+
+      businessFormationOutput = businessFormationResult.status === 'fulfilled' ? businessFormationResult.value : {
+        recommendedStructure: "Private Limited Company",
+        structures: [],
+        bankingSetup: { recommendedBanks: [], paymentGateways: [], upiSetup: "N/A" },
+        brandingSuggestions: { nameOptions: [], brandPositioning: "N/A", logoDirection: "N/A", colorPalette: [], websiteStructure: [], seoKeywords: [] },
+      };
+
+      complianceOutput = complianceResult.status === 'fulfilled' ? complianceResult.value : {
+        registrations: [],
+        taxStructure: {
+          incomeTax: { type: "N/A", rate: "N/A" },
+          gst: { required: false, threshold: "N/A", applicableRate: "N/A" },
+          tds: { applicable: false, sections: [] },
+          advanceTaxCalendar: [],
+          filingDeadlines: [],
+        },
+        accountingSetup: { recommendedSoftware: [], bookkeepingGuide: "N/A" },
+      };
+
+      financialOutput = financialResult.status === 'fulfilled' ? financialResult.value : {
+        startupCapital: { oneTimeSetupCosts: [], totalSetupCost: "N/A" },
+        workingCapital: { monthlyOperatingExpenses: [], threeMonthRequirement: "N/A", monthlyBurnRate: "N/A" },
+        revenueProjections: {
+          conservative: { year1: "N/A", year2: "N/A", year3: "N/A" },
+          realistic: { year1: "N/A", year2: "N/A", year3: "N/A" },
+          optimistic: { year1: "N/A", year2: "N/A", year3: "N/A" },
+        },
+        monthlyPnL: [],
+        cashFlowProjection: [],
+        unitEconomics: { cac: "N/A", ltv: "N/A", ltvCacRatio: "N/A", explanation: "N/A" },
+        breakEvenAnalysis: { timelineMonths: 0, revenueMilestone: "N/A", explanation: "N/A" },
+        fundingOptions: [],
+        pitchReadiness: [],
+      };
+
+      operationsOutput = operationsResult.status === 'fulfilled' ? operationsResult.value : {
+        infrastructure: {
+          officeRequirements: { type: "N/A", sqFt: "N/A", locationRecommendation: "N/A", estimatedRent: "N/A" },
+          equipmentList: [],
+          utilityRequirements: [],
+          totalInfrastructureCost: "N/A",
+        },
+        teamPlan: { orgStructure: "N/A", hiringRoadmap: [], statutoryRequirements: [] },
+        technologyStack: {},
+        suppliers: { rawMaterials: [], vendorCategories: [], procurementStrategy: "N/A", supplyChainRisks: [] },
+        sops: [],
+        launchChecklist: [],
       };
 
     } catch (err) {
@@ -182,7 +347,7 @@ export class AiOrchestrator {
     }
 
     // --- Stage 2: Run VC Agent with merged context ---
-    this.logger.log(`[Orchestrator] Parallel agents complete. Running VC synthesis...`);
+    this.logger.log(`[Orchestrator] 7 parallel agents complete. Running VC synthesis...`);
 
     const vcOutput = await this.withRetry(
       () =>
@@ -198,7 +363,7 @@ export class AiOrchestrator {
     );
 
     this.reportGateway.emitProgress(input.reportId, 'completed', 100, {
-      message: 'Report generation complete!',
+      message: '✅ Business DNA report complete! Your full blueprint is ready.',
     });
 
     const result: OrchestratorOutput = {
@@ -206,6 +371,10 @@ export class AiOrchestrator {
       competitors: competitorOutput,
       product: productOutput,
       vc: vcOutput,
+      businessFormation: businessFormationOutput,
+      compliance: complianceOutput,
+      financial: financialOutput,
+      operations: operationsOutput,
     };
 
     // --- Cache final result for 24h ---

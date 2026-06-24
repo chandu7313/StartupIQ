@@ -191,7 +191,7 @@ export class PdfService {
 
   constructor(private configService: ConfigService) {
     const region = this.configService.get<string>('AWS_S3_REGION') || 'ap-south-1';
-    this.bucketName = this.configService.get<string>('AWS_S3_BUCKET') || 'startupiq-reports';
+    this.bucketName = this.configService.get<string>('AWS_S3_BUCKET') || 'ventureforge-reports';
     
     const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
     const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
