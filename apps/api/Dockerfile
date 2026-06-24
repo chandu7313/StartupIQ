@@ -27,10 +27,10 @@ COPY apps/api/ ./apps/api/
 COPY turbo.json ./
 
 # Generate Prisma client
-RUN pnpm --filter @startupiq/db exec prisma generate
+RUN pnpm --filter @ventureforge/db exec prisma generate
 
 # Compile TypeScript
-RUN pnpm --filter @startupiq/api run build
+RUN pnpm --filter @ventureforge/api run build
 
 # ─────────────────────────────────────────────────────────────
 # Stage 3: Production runner (production deps only)
