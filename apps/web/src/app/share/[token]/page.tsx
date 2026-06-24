@@ -32,10 +32,10 @@ export async function generateMetadata(
   const report = await getPublicReport(params.token);
   
   if (!report) {
-    return { title: 'Report Not Found | startupIQ' };
+    return { title: 'Report Not Found | VentureForge AI' };
   }
 
-  const title = `Startup Analysis: ${report.idea?.name || 'Validated Idea'} | startupIQ`;
+  const title = `Startup Analysis: ${report.idea?.name || 'Validated Idea'} | VentureForge AI`;
   const description = report.marketData?.analysis?.substring(0, 160) || 'Detailed AI validation report for this startup idea.';
 
   return {
@@ -45,7 +45,7 @@ export async function generateMetadata(
       title,
       description,
       type: 'website',
-      siteName: 'startupIQ',
+      siteName: 'VentureForge AI',
     },
     twitter: {
       card: 'summary_large_image',
@@ -69,7 +69,7 @@ export default async function PublicSharePage({ params }: Props) {
       <div className="bg-gradient-to-r from-primary to-secondary text-on-primary py-3 px-6 flex justify-between items-center sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>analytics</span>
-          <span className="font-headline font-bold uppercase tracking-widest text-sm">startupIQ AI</span>
+          <span className="font-headline font-bold uppercase tracking-widest text-sm">VentureForge AI AI</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium hidden md:inline">Validate your own startup idea in 60 seconds.</span>
@@ -165,7 +165,7 @@ export default async function PublicSharePage({ params }: Props) {
 
       {/* ── Footer Watermark ──────────────────────────────────────────── */}
       <footer className="text-center mt-20 pt-10 border-t border-outline-variant/10 text-on-surface-variant text-sm flex flex-col items-center gap-2">
-        <span>Shared via <span className="font-bold text-on-surface">startupIQ AI</span></span>
+        <span>Shared via <span className="font-bold text-on-surface">VentureForge AI AI</span></span>
         <Link href="/" className="hover:text-primary transition-colors hover:underline">Create your own validation report</Link>
       </footer>
 

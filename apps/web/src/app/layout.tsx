@@ -11,9 +11,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata = {
-  title: "startupIQ - Validate Your Startup Idea",
+  title: "VentureForge AI — From Idea to Investor-Ready Business in Minutes",
   description:
-    "Editorial-First Intelligence trained on YC patterns and Indian institutional rigor. Enter your idea, get an actionable viability score.",
+    "AI-powered startup intelligence & business operating system for Indian founders. Transform any idea into a validated, legally structured, operationally ready, investor-grade business blueprint.",
 };
 
 export default function RootLayout({
