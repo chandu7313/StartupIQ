@@ -1,6 +1,6 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
+import { Inject, forwardRef, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { Logger } from '@nestjs/common';
 import { AiOrchestrator } from '../ai/ai.orchestrator';
 import { ReportRepository } from '../../prisma/report.repository';
 import { RedisService, CacheKeys, CacheTTL } from '../../common/redis/redis.service';
@@ -25,7 +25,7 @@ export class ReportWorker extends WorkerHost {
   private readonly logger = new Logger(ReportWorker.name);
 
   constructor(
-    private readonly orchestrator: AiOrchestrator,
+    @Inject(forwardRef(() => AiOrchestrator)) private readonly orchestrator: AiOrchestrator,
     private readonly reportRepo: ReportRepository,
     private readonly redis: RedisService,
     private readonly dedup: IdeaDedupService,
@@ -101,6 +101,15 @@ export class ReportWorker extends WorkerHost {
         gtmData: result.product.gtm as any,
         investorData: result.vc.dimensions as any,
         pitchData: result.vc.pitch as any,
+        // New VentureForge AI fields
+        businessFormationData: result.businessFormation as any,
+        complianceData: result.compliance as any,
+        financialData: result.financial as any,
+        sopData: result.operations as any,
+        teamData: result.operations.teamPlan as any,
+        technologyData: result.operations.technologyStack as any,
+        fundingData: result.financial.fundingOptions as any,
+        launchChecklistData: result.operations.launchChecklist as any,
         generationTimeMs,
       });
 

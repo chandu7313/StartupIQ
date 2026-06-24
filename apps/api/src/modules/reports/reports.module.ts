@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -17,7 +17,7 @@ const DLQ_NAME = 'report-generation-dlq';
 
 @Module({
   imports: [
-    AiModule,
+    forwardRef(() => AiModule),
     UsersModule,
     // Main queue
     BullModule.registerQueue({ name: REPORT_QUEUE }),
@@ -42,6 +42,6 @@ const DLQ_NAME = 'report-generation-dlq';
     PdfService,
   ],
   controllers: [ReportsController],
-  exports: [ReportProducer, IdeaDedupService, ReportsService, PdfService],
+  exports: [ReportProducer, IdeaDedupService, ReportsService, PdfService, ReportGateway],
 })
 export class ReportsModule {}

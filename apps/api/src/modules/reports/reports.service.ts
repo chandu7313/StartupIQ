@@ -231,7 +231,7 @@ Return ONLY a JSON object: {"recommendation": "<2-sentence recommendation>", "su
 
     // If already shared, return existing token
     if (report.shareToken && report.isPublic) {
-      return { shareUrl: `https://startupiq.in/share/${report.shareToken}`, token: report.shareToken };
+      return { shareUrl: `https://ventureforge.in/share/${report.shareToken}`, token: report.shareToken };
     }
 
     const token = nanoid(10);
@@ -240,7 +240,7 @@ Return ONLY a JSON object: {"recommendation": "<2-sentence recommendation>", "su
       data: { shareToken: token, isPublic: true, sharedAt: new Date() },
     });
 
-    return { shareUrl: `https://startupiq.in/share/${token}`, token };
+    return { shareUrl: `https://ventureforge.in/share/${token}`, token };
   }
 
   // ─────────────────────────────────────────────────
