@@ -28,7 +28,7 @@ export function NameGeneratorWidget({ idea, industry, geography }: Props) {
 
   // Load saved names from local storage
   React.useEffect(() => {
-    const saved = localStorage.getItem('startupiq_saved_names');
+    const saved = localStorage.getItem('ventureforge_saved_names');
     if (saved) {
       try {
         setSavedNames(JSON.parse(saved));
@@ -39,7 +39,7 @@ export function NameGeneratorWidget({ idea, industry, geography }: Props) {
   const toggleSave = (name: string) => {
     setSavedNames(prev => {
       const newSaved = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
-      localStorage.setItem('startupiq_saved_names', JSON.stringify(newSaved));
+      localStorage.setItem('ventureforge_saved_names', JSON.stringify(newSaved));
       return newSaved;
     });
   };

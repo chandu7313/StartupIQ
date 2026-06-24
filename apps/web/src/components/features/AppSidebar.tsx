@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, FileText, PlusCircle, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { cn } from "@startupiq/ui";
+import { cn } from "@ventureforge/ui";
 import { BillingStatus } from "./BillingStatus";
 
 const navItems = [
@@ -35,8 +35,8 @@ export const AppSidebar = () => {
       <div className="flex h-16 items-center justify-between px-4 border-b">
         {!isCollapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 font-bold text-xl text-indigo-600 dark:text-indigo-400">
-            <img src="/app-logo.png" alt="startupIQ Logo" className="h-6 w-6 object-contain" />
-            startupIQ
+            <img src="/app-logo.png" alt="VentureForge AI Logo" className="h-6 w-6 object-contain" />
+            VentureForge AI
           </motion.div>
         )}
         <button
