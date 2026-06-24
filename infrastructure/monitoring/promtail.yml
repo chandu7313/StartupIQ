@@ -14,7 +14,7 @@ scrape_configs:
     static_configs:
       - targets: [localhost]
         labels:
-          app: startupiq-api
+          app: ventureforge-api
           environment: production
           __path__: /var/log/containers/ss_api*.log
 
@@ -42,7 +42,7 @@ scrape_configs:
     static_configs:
       - targets: [localhost]
         labels:
-          app: startupiq-workers
+          app: ventureforge-workers
           environment: production
           __path__: /var/log/containers/ss_workers*.log
     pipeline_stages:

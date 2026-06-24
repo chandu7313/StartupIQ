@@ -12,7 +12,7 @@ route:
 receivers:
   - name: 'slack-notifications'
     slack_configs:
-      - channel: '#startupiq-alerts'
+      - channel: '#ventureforge-alerts'
         send_resolved: true
         title: |-
           [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if eq .Status "firing" }}{{ end }}
