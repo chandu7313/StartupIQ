@@ -51,7 +51,7 @@ async function bootstrap() {
 
   // ── Swagger API Documentation ──────────────────────────────────────────
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('startupIQ — Backend API')
+    .setTitle('VentureForge AI — Backend API')
     .setDescription(
       'Multi-agent AI startup validator for Indian founders. ' +
       'Authenticate with a Clerk JWT Bearer token.',
