@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="hidden lg:flex w-[45%] flex-col justify-between bg-[#111827] text-white p-12 relative overflow-hidden">
         {/* Logo */}
         <div className="flex items-center space-x-2">
-          <img src="/app-logo.png" alt="startupIQ Logo" className="h-8 w-8 object-contain" />
+          <img src="/app-logo.png" alt="VentureForge AI Logo" className="h-8 w-8 object-contain" />
           <span className="text-xl font-bold tracking-tight">
             startup<span className="text-[#22c55e]">IQ</span>
           </span>
@@ -39,7 +39,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="relative">
             <Quote className="absolute -top-2 -left-2 h-8 w-8 text-[#22c55e] fill-current opacity-20" />
             <p className="relative z-10 text-[15px] italic leading-relaxed text-[#d1d5db]">
-              "startupIQ's AI validation provided the rigor we needed to secure our Series A. It's the standard for the Indian ecosystem."
+              "VentureForge AI's AI validation provided the rigor we needed to secure our Series A. It's the standard for the Indian ecosystem."
             </p>
           </div>
           <div className="mt-6 flex items-center space-x-3">

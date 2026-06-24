@@ -59,7 +59,7 @@ export default function BillingPage() {
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
         order_id: order.id,
-        name: "StartupIQ",
+        name: "VentureForge",
         description: `Purchase ${packageId} Credit Pack`,
         handler: async function (response: any) {
           try {

@@ -92,23 +92,18 @@ export default function DashboardPage() {
   return (
     <div className="bg-surface font-body text-on-surface antialiased min-h-screen flex selection:bg-primary-fixed selection:text-on-primary-fixed">
       {/* ── SideNavBar ───────────────────────────────────────────── */}
-      <nav className="bg-[#131b2e] text-on-primary font-headline text-sm font-medium tracking-wide h-screen w-64 fixed left-0 top-0 z-40 shadow-[4px_0_24px_rgba(0,0,0,0.1)] flex flex-col p-6 space-y-8">
+      <nav className="bg-[#0f1729] text-on-primary font-headline text-sm font-medium tracking-wide h-screen w-64 fixed left-0 top-0 z-40 shadow-[4px_0_24px_rgba(0,0,0,0.15)] flex flex-col p-6 space-y-8">
         {/* Header */}
         <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 rounded bg-white/10 flex-shrink-0 flex items-center justify-center">
-            <span
-              className="material-symbols-outlined text-white text-xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              analytics
-            </span>
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex-shrink-0 flex items-center justify-center">
+            <span className="material-symbols-outlined text-white text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-black text-white uppercase tracking-widest leading-none">
-              Sovereign Analyst
+            <span className="text-lg font-black text-white tracking-tight leading-none">
+              VentureForge <span className="text-emerald-400 font-medium text-xs">AI</span>
             </span>
-            <span className="text-xs text-slate-400 mt-1">
-              startupIQ
+            <span className="text-xs text-slate-500 mt-1">
+              Business Operating System
             </span>
           </div>
         </div>
@@ -130,11 +125,11 @@ export default function DashboardPage() {
             Compare Ideas
           </Link>
           <Link
-            href="/competitors"
+            href="/billing"
             className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all duration-300"
           >
-            <span className="material-symbols-outlined">query_stats</span>
-            Competitors
+            <span className="material-symbols-outlined">payments</span>
+            Billing
           </Link>
           <Link
             href="/settings"
@@ -149,10 +144,10 @@ export default function DashboardPage() {
         <div className="px-2 w-full">
           <Link
             href="/validate/new"
-            className="w-full bg-gradient-to-b from-primary-container to-[#0b1222] text-on-primary py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:opacity-95 transition-opacity"
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-500/20"
           >
             <span className="material-symbols-outlined text-sm">add</span>
-            New Validation
+            New Business DNA
           </Link>
         </div>
 
