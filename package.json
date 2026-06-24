@@ -1,5 +1,5 @@
 {
-  "name": "startupiq",
+  "name": "ventureforge",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -10,7 +10,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "db:push": "pnpm --filter @startupiq/db db:push"
+    "db:push": "pnpm --filter @ventureforge/db db:push"
   },
   "devDependencies": {
     "turbo": "^1.13.0",
