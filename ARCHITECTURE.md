@@ -1,10 +1,10 @@
-# startupIQ AI - System Architecture
+# VentureForge AI - System Architecture
 
-Welcome to the **startupIQ AI** codebase. This document outlines the high-level architecture, directory structures, and design patterns used across the system. This project is built to production-grade standards, focusing on maintainability, scalability, and robust domain separation.
+Welcome to the **VentureForge AI** codebase. This document outlines the high-level architecture, directory structures, and design patterns used across the system. This project is built to production-grade standards, focusing on maintainability, scalability, and robust domain separation.
 
 ## 1. High-Level Architecture
 
-startupIQ operates as a multi-agent AI orchestration platform. It is structured as a **Turborepo** Monorepo containing two main applications:
+VentureForge AI operates as a multi-agent AI orchestration platform. It is structured as a **Turborepo** Monorepo containing two main applications:
 - **Web (`apps/web`)**: A Next.js (App Router) frontend providing the user interface, dashboard, and marketing pages.
 - **API (`apps/api`)**: A NestJS backend that handles authentication, database interactions, and the heavy-lifting of AI orchestration via asynchronous job queues.
 
@@ -60,8 +60,10 @@ Generating a massive AI report synchronously would cause HTTP timeouts. Instead,
 2. The `ReportsController` creates a Pending record and delegates to `ReportProducer` which pushes a job to **BullMQ** (backed by Redis).
 3. The HTTP request returns immediately (HTTP 202 Accepted).
 4. The background `ReportWorker` picks up the job and invokes the `AiOrchestrator`.
-5. The Orchestrator runs 3 Specialist Agents in **parallel** (`Promise.all()`), merges their output, and runs a final Synthesis Agent.
-6. Progress is emitted in real-time to the frontend via **WebSockets** (`ReportGateway`).
+5. The Orchestrator runs **8 Specialist Agents** using a two-stage pipeline:
+   - **Stage 1 (Parallel)**: 7 agents run concurrently (`Promise.allSettled()`) handling Market, Competitor, Product, Business Formation, Compliance, Financial, and Operations dimensions.
+   - **Stage 2 (Synthesis)**: The VC Agent synthesizes the outputs of Stage 1 into final scores and funding recommendations.
+6. Progress is emitted in real-time to the frontend via **WebSockets** (`ReportGateway`) with specific milestones for each of the 14 Business DNA dimensions.
 
 ---
 
