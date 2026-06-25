@@ -1,63 +1,37 @@
 import { BusinessFormationAgentInput } from '../ai.types';
-import { INDIA_CONTEXT, HINDI_CONTEXT } from './india-context';
+import { getCountryContext, getCountryCurrency, getLanguageInstruction } from './country-context';
 
-export function getBusinessFormationPrompt(input: BusinessFormationAgentInput): string {
-  return `You are VentureForge AI's Business Formation specialist — an expert in Indian business law, company registration, banking, and branding.
+export function getBusinessFormationPrompt(input: BusinessFormationAgentInput, searchContext: string = ''): string {
+  const { currency, symbol } = getCountryCurrency(input.country || input.geography);
+  const countryContext = getCountryContext({ country: input.country || input.geography, state: input.state, language: input.language });
+  const langInstruction = getLanguageInstruction(input.language);
 
-${INDIA_CONTEXT}
+  return `You are a top-tier Corporate Lawyer and Business Strategy Consultant.
+Your task is to recommend the optimal legal structure, banking setup, and brand positioning for a new business.
 
-## TASK
-Analyze the following startup idea and recommend the optimal legal structure, banking setup, and branding strategy.
+STARTUP IDEA:
+${input.ideaDescription}
 
-## STARTUP DETAILS
-- **Idea**: ${input.ideaDescription}
-- **Industry**: ${input.industry}
-- **Geography**: ${input.geography}
-- **Team Size**: ${input.teamSize}
-${input.state ? `- **State**: ${input.state}` : ''}
-${input.businessType ? `- **Business Type**: ${input.businessType}` : ''}
-${input.language === 'hi' ? '\n⚠️ Provide ALL text content in Hindi (Devanagari script).' : ''}
+INDUSTRY: ${input.industry}
+BUSINESS TYPE: ${input.businessType || 'business'}
+TEAM SIZE: ${input.teamSize}
+GEOGRAPHY: ${input.geography}
+COUNTRY: ${input.country || input.geography}
+STATE/REGION: ${input.state || 'N/A'}
 
-## REQUIRED OUTPUT
-Return a JSON object with this exact structure:
+${searchContext}
 
-\`\`\`json
-{
-  "recommendedStructure": "Private Limited Company",
-  "structures": [
-    {
-      "type": "Sole Proprietorship",
-      "pros": ["Easy to set up", "Minimal compliance"],
-      "cons": ["Unlimited liability", "Difficult to raise funding"],
-      "taxImplications": "Taxed at individual slab rates",
-      "registrationCost": "₹500 - ₹2,000",
-      "complianceBurden": "Low — ITR filing, GST if applicable",
-      "isRecommended": false,
-      "reasoning": "..."
-    },
-    // Include: Sole Proprietorship, Partnership, LLP, Private Limited, OPC
-  ],
-  "bankingSetup": {
-    "recommendedBanks": [
-      { "name": "HDFC Bank", "accountType": "Current Account", "features": ["..."], "monthlyFee": "₹1,000/month" }
-    ],
-    "paymentGateways": [
-      { "name": "Razorpay", "mdrRate": "2%", "features": ["UPI", "Cards", "Netbanking"] }
-    ],
-    "upiSetup": "Register for UPI Business via your bank..."
-  },
-  "brandingSuggestions": {
-    "nameOptions": [
-      { "name": "BrandName", "rationale": "Why this name works", "domainAvailable": true }
-    ],
-    "brandPositioning": "Premium organic food brand for health-conscious urban families",
-    "logoDirection": "Clean, natural green tones with leaf motif",
-    "colorPalette": ["#2D5016", "#F4E8C1", "#8BC34A"],
-    "websiteStructure": ["Home", "Products", "About", "Contact", "Blog"],
-    "seoKeywords": ["organic tomato sauce india", "natural ketchup"]
-  }
-}
-\`\`\`
+${countryContext}
 
-Return ONLY the JSON inside a code block. Be specific to the Indian market. Provide 10 brand name suggestions. Include all 5 business structures with detailed analysis.`;
+INSTRUCTIONS:
+1. Recommend the single best legal structure (e.g., LLC, C-Corp, Pvt Ltd) based on the country, state, team size, and industry.
+2. Provide at least 2 alternative structures with pros and cons.
+3. Provide Banking Setup recommendations relevant to the geography (e.g., local banks that support startups well).
+4. Create a Business Model Canvas and a Lean Canvas specifically tailored to this idea.
+5. Provide Branding Suggestions including name options, positioning, and color palettes.
+6. Provide monetary values in ${currency} (${symbol}).
+7. Return the response strictly as a JSON object matching the requested schema. No markdown fences.
+
+${langInstruction}
+`;
 }
