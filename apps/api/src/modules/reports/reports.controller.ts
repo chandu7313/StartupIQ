@@ -86,24 +86,27 @@ export class ReportsController {
       ideaHash,
     );
 
-    // 3. Enqueue with plan-based priority
-    await this.producer.addJob({
-      reportId: report.id,
-      ideaId: dto.ideaId,
-      ideaDescription: dto.ideaDescription,
-      industry: dto.industry,
-      geography: dto.geography ?? 'PAN_INDIA',
-      stage: dto.stage ?? 'idea',
-      teamSize: dto.teamSize ?? 1,
-      budget: dto.budget ?? '< ₹5L',
-      language: dto.language ?? 'en',
-    });
+    // The comprehensive background job is removed.
+    // Sections will be generated on-demand by the user via /generate-section.
 
     return {
       cached: false,
       reportId: report.id,
-      message: 'Report generation queued.',
+      message: 'Overview generated successfully.',
     };
+  }
+
+  // ─────────────────────────────────────────────────
+  // POST /api/v1/reports/:id/generate/:section
+  // ─────────────────────────────────────────────────
+  @Post(':id/generate/:section')
+  @ApiOperation({ summary: 'Generate a specific section of the report on-demand' })
+  async generateSection(
+    @CurrentUser() userId: string,
+    @Param('id') id: string,
+    @Param('section') section: string,
+  ) {
+    return this.reportsService.generateSection(userId, id, section);
   }
 
   // ─────────────────────────────────────────────────
